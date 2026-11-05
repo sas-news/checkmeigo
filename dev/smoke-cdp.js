@@ -59,6 +59,8 @@ async function main() {
 
   await send('Page.enable');
   await send('Runtime.enable');
+  await send('Network.enable');
+  await send('Network.setCacheDisabled', { cacheDisabled: true });
   await send('Emulation.setDeviceMetricsOverride', { width: 480, height: 900, deviceScaleFactor: 2, mobile: false });
   await send('Page.navigate', { url: APP_URL });
   await wait(1600);
