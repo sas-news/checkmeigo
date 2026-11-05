@@ -872,7 +872,7 @@ function checkEndAfterMove() {
 cv.addEventListener('pointerdown', e => { snd.init(); ptype = e.pointerType || 'mouse'; });
 cv.addEventListener('pointermove', e => { ptype = e.pointerType || ptype; });
 cv.addEventListener('mousemove', e => {
-  if (over) return;
+  if (over || ptype !== 'mouse') return; // タッチ端末ではホバープレビューを出さない
   const p = pick(e);
   const next = (sel < 0 && p.pt >= 0 && p.near < p.cell * 0.30 && !stones[p.pt] && !inCheck()) ? p.pt : -1;
   if (next !== hoverPt) { hoverPt = next; render(); }
