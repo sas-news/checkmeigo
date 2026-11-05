@@ -47,6 +47,7 @@ python3 -m http.server 8000
 ```bash
 node dev/selftest.js        # エンジンの自己テスト（チェス/囲碁のルール検証）
 node dev/smoke-cdp.js       # ブラウザE2E（要 HTTP サーバーと chrome-headless-shell）
+node dev/screenshots.js     # テーマ別スクリーンショット撮影（目視確認用）
 ```
 
 `dev/selftest.js` は `index.html` 内の `/*ENGINE-START*/ … /*ENGINE-END*/` 区間を抽出して Node で実行します。チェスは perft（初期局面 depth 3 = 8902、Kiwipete depth 2 = 2039）まで検証しています。
@@ -66,9 +67,20 @@ node dev/smoke-cdp.js
 ```
 index.html            アプリ本体（HTML/CSS/JS 1ファイル）
 dev/selftest.js       エンジン自己テスト（DOM非依存）
-dev/smoke-cdp.js      CDP によるブラウザE2E
-artifacts/            E2E のスクリーンショット
+dev/smoke-cdp.js      CDP によるブラウザE2E（34項目）
+dev/screenshots.js    テーマ別スクリーンショット撮影
+artifacts/            スクリーンショット（E2E・テーマ確認）
 ```
+
+## スクリーンショット
+
+| チェス（既定テーマ） | 囲碁 9路（和風テーマ） |
+| --- | --- |
+| ![chess](artifacts/chess-board.png) | ![go](artifacts/go-wa-mobile.png) |
+
+| 囲碁（ダークテーマ） | 結果（中国ルール集計） |
+| --- | --- |
+| ![go dark](artifacts/dark-go-mobile.png) | ![result](artifacts/go-result.png) |
 
 ## 意図的に決めていないこと
 

@@ -6,6 +6,7 @@
   "scripts": {
     "serve": "python3 -m http.server 8123 --bind 127.0.0.1",
     "test": "node dev/selftest.js",
-    "e2e": "node dev/smoke-cdp.js"
+    "e2e": "node dev/smoke-cdp.js",
+    "shots": "node dev/screenshots.js"
   }
 }
