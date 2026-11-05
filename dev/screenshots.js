@@ -60,10 +60,15 @@ const H = +(process.env.VIEW_H || 844);
     await wait(130);
   }
 
-  // 駒を数手 + 石を数個（既定テーマ）
-  for (const [r, c] of [[6,4],[4,4],[1,4],[3,4],[7,5],[4,2],[0,6],[2,5],[7,3],[3,7]]) await clickAt(sqXY(r, c));
-  await clickAt(ptXY(5, 2));
-  await clickAt(ptXY(3, 5));
+  // 駒・取り・端の交点の石を混ぜて撮る（既定テーマ）
+  await clickAt(sqXY(6, 4)); await clickAt(sqXY(4, 4)); // e4
+  await clickAt(sqXY(1, 3)); await clickAt(sqXY(3, 3)); // d5
+  await clickAt(sqXY(4, 4)); await clickAt(sqXY(3, 3)); // exd5（駒を取る）
+  await clickAt(ptXY(0, 4));                            // 上端の交点に黒石
+  await clickAt(sqXY(7, 5)); await clickAt(sqXY(4, 2)); // Bc4
+  await clickAt(ptXY(8, 4));                            // 下端の交点に黒石
+  await clickAt(ptXY(4, 0));                            // 左端の交点に白石
+  await clickAt(ptXY(4, 8));                            // 右端の交点に黒石
   await clickAt(ptXY(5, 5));
   await shot('hybrid-board.png');
 

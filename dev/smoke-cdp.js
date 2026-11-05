@@ -113,6 +113,15 @@ async function main() {
   check(fen.split(' ')[1] === 'b', '駒を動かすと手番が黒へ', fen);
   check((await evalJs('window.__checkmeigo.log().length')) === 1, '棋譜が1手');
 
+  // 黒 d5 → 白 exd5 で駒を取る
+  await clickSquare(1, 3); await clickSquare(3, 3);
+  await clickSquare(4, 4); await clickSquare(3, 3);
+  check((await evalJs('window.__checkmeigo.log().length')) === 3, '取り込みで3手');
+
+  // ---- 取った駒の表示が画像（絵文字ではない）----
+  check((await evalJs('document.getElementById("dmg").innerHTML')).includes('<img'), '取った駒が画像で表示');
+  check(!/[♚♛♜♝♞♟♕♖♗♘]/.test(await evalJs('document.documentElement.innerHTML')), '絵文字グリフ不使用');
+
   // ---- 交点とマス中央の判定が分かれている ----
   await clickIntersection(0, 0);
   st = await stones();
@@ -136,6 +145,53 @@ async function main() {
   const state = JSON.parse(await evalJs('JSON.stringify({turn:window.__checkmeigo.turn(),over:window.__checkmeigo.over(),log:window.__checkmeigo.log()})'));
   check(state.turn === 'b' && !state.over, '石を挟んでも対局が継続', JSON.stringify(state.log));
   check(state.log.some(x => x.includes('石')), '棋譜に石が混在');
+
+  // ---- プロモーションUI（画像で選択）----
+  await evalJs('document.getElementById("btnNew").click()');
+  await wait(200);
+  const promoSeq = [
+    [6,7],[4,7], [1,0],[2,0],
+    [4,7],[3,7], [2,0],[3,0],
+    [3,7],[2,7], [3,0],[4,0],
+    [2,7],[1,6], [4,0],[5,0],
+    [1,6],[0,7]
+  ];
+  for (const [r,c] of promoSeq) await clickSquare(r,c);
+  const promoOpen = await evalJs('document.getElementById("promoModal").classList.contains("hidden") === false');
+  check(promoOpen, 'プロモーション選択モーダル表示');
+  const promoImgs = await evalJs('document.querySelectorAll("#promoBtns img").length');
+  check(promoImgs === 4, 'プロモーションの選択肢が画像になっている', String(promoImgs));
+  await clickEl('#promoBtns button[data-promo="q"]');
+  const fen3 = await evalJs('window.__checkmeigo.fen()');
+  check(fen3.split(' ')[0].startsWith('rnbqkbnQ'), 'プロモーションでクイーン配置', fen3);
+
+  // ---- タッチ操作: 石は1タップでは確定せず、同じ交点の2タップで確定 ----
+  await evalJs('document.getElementById("btnNew").click()');
+  await wait(200);
+  await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+  await evalsetMetricsTouch();
+  async function tapAt(p) {
+    await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: p.x, y: p.y }] });
+    await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await wait(180);
+  }
+  async function evalsetMetricsTouch() {
+    await send('Emulation.setDeviceMetricsOverride', { width: 480, height: 900, deviceScaleFactor: 2, mobile: true });
+    await wait(250);
+  }
+  const R2 = JSON.parse(await evalJs('JSON.stringify(document.getElementById("cv").getBoundingClientRect())'));
+  const pad2 = R2.width * 0.06, cell2 = (R2.width - pad2 * 2) / 8;
+  const tapPt = (vr, vc) => ({ x: R2.left + pad2 + vc * cell2, y: R2.top + pad2 + vr * cell2 });
+  await tapAt(tapPt(3, 3));
+  let stTouch = JSON.parse(await evalJs('JSON.stringify(window.__checkmeigo.stones())'));
+  check(stTouch.every(v => v === 0), 'タッチ1回目では石は置かれない（プレビュー）');
+  await tapAt(tapPt(3, 3));
+  stTouch = JSON.parse(await evalJs('JSON.stringify(window.__checkmeigo.stones())'));
+  check(stTouch[3 * 9 + 3] === 2, '同じ交点の2タップ目で石が置かれる');
+  check((await evalJs('window.__checkmeigo.turn()')) === 'b', 'タッチ着手後は手番が黒');
+  await send('Emulation.setTouchEmulationEnabled', { enabled: false });
+  await send('Emulation.setDeviceMetricsOverride', { width: 480, height: 900, deviceScaleFactor: 2, mobile: false });
+  await wait(250);
 
   // ---- 盤面反転 ----
   const fen2 = await evalJs('window.__checkmeigo.fen()');

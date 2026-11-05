@@ -14,17 +14,18 @@
 
 ## 操作
 
-- **駒**: マス中央をタップ → 移動先をタップ（緑=移動、赤=取り）。デスクトップは交点上でホバーすると石のプレビューが出ます。
-- **石**: 交点（マスの角）をタップ（駒を選択していないとき）。
+- **駒**: マス中央をタップ → 移動先をタップ（緑=移動、赤=取り）。駒は SVG アセットで描画（絵文字グリフは使いません）。
+- **石**: 交点（マスの角）をタップ（駒を選択していないとき）。**PC は1クリック、スマホ／タブレットは同じ交点を2タップで確定**（1タップ目はプレビュー）。
 - **1手戻る / 盤面反転 / 投了**（投了は2タップ確認）、テーマ切替、効果音、sessionStorage による局面の自動保存。
 
 ## デザインシステムの流用元
 
-GUI の基礎は [cerevisiae-fii/hexago](https://github.com/sas-news/hexago) から**デザインシステムだけ**を流用しています。
+GUI の基礎は [cerevisiae-fii/hexago](https://github.com/sas-news/hexago) から**デザインシステムだけ**を流用しています。チェスの駒は **Chessnut piece set**（Apache-2.0）の SVG を埋め込み利用しています。詳細は [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) を参照してください。
 
 - 流用したもの: Tailwind CSS 土台、CSS 変数テーマ（`--bg` / `--tx` / `--card` / `--bd`）、`.card` / `.btn` / `.opt` / `.dot`、ヘッダ＋設定・ルールボタン、手番カード、canvas、操作ボタン列、結果バナー、undo・設定・ルール・結果モーダル、テーマ切替、効果音、sessionStorage 保存
 - 削除したもの: PeerJS オンライン対戦一式、六角盤ジオメトリ、MCTS、2〜6人の可変人数、AI 席切替、ベンチ・E2E・WASM
 - 差し替えたもの: 中央のゲーム盤。チェスのマス（8×8）と囲碁の交点（9×9）を同じ盤に重ね、駒はマス中央、石は交点に描画
+- 駒の絵柄: [Chessnut](https://github.com/LexLuengas/chessnut-pieces)（Apache-2.0）の SVG を data URL として `index.html` に同梱
 
 ## 起動
 
@@ -39,7 +40,7 @@ python3 -m http.server 8000
 
 ```bash
 node dev/selftest.js        # エンジンの自己テスト（チェスの perft・囲碁ルール）
-node dev/smoke-cdp.js       # ブラウザE2E（要 HTTP サーバーと chrome-headless-shell）
+node dev/smoke-cdp.js       # ブラウザE2E 38項目（要 HTTP サーバーと chrome-headless-shell）
 node dev/screenshots.js     # テーマ別スクリーンショット撮影（目視確認用）
 ```
 
@@ -57,11 +58,13 @@ node dev/smoke-cdp.js
 ## 構成
 
 ```
-index.html            アプリ本体（HTML/CSS/JS 1ファイル）
+index.html            アプリ本体（HTML/CSS/JS 1ファイル。駒SVGを同梱）
 dev/selftest.js       エンジン自己テスト（DOM非依存）
-dev/smoke-cdp.js      CDP によるブラウザE2E
+dev/smoke-cdp.js      CDP によるブラウザE2E（38項目）
 dev/screenshots.js    テーマ別スクリーンショット撮影
 artifacts/            スクリーンショット（E2E・テーマ確認）
+LICENSES/             同梱アセットのライセンス全文
+THIRD_PARTY_NOTICES.md サードパーティ表記
 ```
 
 ## スクリーンショット
