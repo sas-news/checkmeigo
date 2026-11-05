@@ -2,10 +2,10 @@
 'use strict';
 /**
  * チェックメイゴ E2E スモークテスト（CDP / chrome-headless-shell）
- * 事前に: python3 -m http.server 8123 --directory chess-go と
- *         chrome-headless-shell --remote-debugging-port=9222 ...
+ * 事前に HTTP サーバーと chrome-headless-shell を起動しておく。
  *
  *   node dev/smoke-cdp.js
+ *   APP_URL=https://sas-news.github.io/checkmeigo/ node dev/smoke-cdp.js
  */
 const fs = require('fs');
 const path = require('path');
@@ -28,8 +28,7 @@ async function main() {
   const ws = new WebSocket(target.webSocketDebuggerUrl);
   let id = 0;
   const pending = new Map();
-  const events = [];
-  let issues = [];
+  const issues = [];
 
   ws.addEventListener('message', ev => {
     const msg = JSON.parse(ev.data);
@@ -38,14 +37,10 @@ async function main() {
       pending.delete(msg.id);
       if (msg.error) reject(new Error(JSON.stringify(msg.error)));
       else resolve(msg.result);
-    } else if (msg.method) {
-      events.push(msg);
-      if (msg.method === 'Runtime.exceptionThrown') {
-        issues.push('例外: ' + (msg.params.exceptionDetails.exception?.description || msg.params.exceptionDetails.text));
-      }
-      if (msg.method === 'Runtime.consoleAPICalled' && msg.params.type === 'error') {
-        issues.push('console.error: ' + msg.params.args.map(a => a.value || a.description).join(' '));
-      }
+    } else if (msg.method === 'Runtime.exceptionThrown') {
+      issues.push('例外: ' + (msg.params.exceptionDetails.exception?.description || msg.params.exceptionDetails.text));
+    } else if (msg.method === 'Runtime.consoleAPICalled' && msg.params.type === 'error') {
+      issues.push('console.error: ' + msg.params.args.map(a => a.value || a.description).join(' '));
     }
   });
 
@@ -65,136 +60,124 @@ async function main() {
   await send('Page.enable');
   await send('Runtime.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: 480, height: 900, deviceScaleFactor: 2, mobile: false });
-  await send('Page.reload', { ignoreCache: true });
-  await wait(1200);
+  await send('Page.navigate', { url: APP_URL });
+  await wait(1600);
 
   // ---- 初期表示 ----
   check((await evalJs('document.title')).includes('チェックメイゴ'), 'title に チェックメイゴ');
-  check((await evalJs('!!window.__checkmeigo')) , '__checkmeigo フックあり');
-  check(await evalJs('window.__checkmeigo.game()') === 'chess', '初期表示はチェス');
+  check(await evalJs('!!window.__checkmeigo'), '__checkmeigo フックあり');
+  check(await evalJs('document.querySelectorAll("[data-game]").length') === 0, 'ゲーム切替タブは無い（混合のみ）');
   check(await evalJs('document.getElementById("setModal").classList.contains("hidden") === false'), '初回は設定モーダル表示');
-  const canvasW = await evalJs('document.getElementById("cv").getBoundingClientRect().width');
-  check(canvasW > 300, 'canvas が描画サイズを持つ', String(canvasW));
-  check(await evalJs('document.getElementById("cv").width') > 0, 'canvas 実ピクセルあり');
-
-  // 設定モーダルを閉じる
+  check(await evalJs('document.getElementById("cv").getBoundingClientRect().width') > 300, 'canvas が描画サイズを持つ');
   await evalJs('document.getElementById("btnCloseSettings").click()');
-  await wait(150);
-  check(await evalJs('document.getElementById("setModal").classList.contains("hidden")'), '設定モーダルを閉じられる');
+  await wait(120);
 
-  const rect = await evalJs('JSON.stringify(document.getElementById("cv").getBoundingClientRect())');
-  const R = JSON.parse(rect);
+  const R = JSON.parse(await evalJs('JSON.stringify(document.getElementById("cv").getBoundingClientRect())'));
   const pad = R.width * 0.06, cell = (R.width - pad * 2) / 8;
-  const sqPoint = (r, c) => ({ x: R.left + pad + (c + 0.5) * cell, y: R.top + pad + (r + 0.5) * cell });
-  async function clickSquare(r, c) {
-    const p = sqPoint(r, c);
+  const ptPoint = (vr, vc) => ({ x: R.left + pad + vc * cell, y: R.top + pad + vr * cell });
+  const sqPoint = (vr, vc) => ({ x: R.left + pad + (vc + 0.5) * cell, y: R.top + pad + (vr + 0.5) * cell });
+  async function clickAt(p) {
     await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: p.x, y: p.y, button: 'left', clickCount: 1 });
     await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: p.x, y: p.y, button: 'left', clickCount: 1 });
     await wait(120);
   }
+  const clickIntersection = (vr, vc) => clickAt(ptPoint(vr, vc));
+  const clickSquare = (vr, vc) => clickAt(sqPoint(vr, vc));
   async function clickEl(sel) {
     await evalJs(`document.querySelector(${JSON.stringify(sel)}).click()`);
-    await wait(150);
+    await wait(140);
   }
+  const stones = async () => JSON.parse(await evalJs('JSON.stringify(window.__checkmeigo.stones())'));
 
-  // ---- チェス: e2-e4（白ポーン） ----
-  await clickSquare(6, 4);
-  check((await evalJs('document.getElementById("hint").dataset.sel || ""')) !== undefined, '駒タップ後に例外なし');
-  await clickSquare(4, 4);
-  let fen = await evalJs('window.__checkmeigo.fen()');
-  check(fen.split(' ')[0].includes('P') && fen.split(' ')[1] === 'b', 'e2-e4 で手番が黒に', fen);
-  check((await evalJs('window.__checkmeigo.chessLog().length')) === 1, '棋譜が1手');
+  // ---- 石を交点に置く（白番なので白石）----
+  await clickIntersection(4, 4);
+  let st = await stones();
+  check(st[4 * 9 + 4] === 2, '交点タップで石が置ける（白石）', JSON.stringify(st.filter(Boolean)));
+  check((await evalJs('window.__checkmeigo.turn()')) === 'b', '石を置くと手番が黒へ');
   check((await evalJs('document.getElementById("turnInd").textContent')).includes('黒'), '手番表示が黒');
+  check((await evalJs('document.getElementById("moveLog").textContent')).includes('石'), '棋譜に石の着手');
 
-  // ---- チェス: 駒を取る（黒 d7-d5, 白 e4xd5）----
-  await clickSquare(1, 3); // d7
-  await clickSquare(3, 3); // d5
-  await clickSquare(4, 4); // e4 pawn
-  await clickSquare(3, 3); // capture d5
-  check((await evalJs('window.__checkmeigo.chessLog().length')) === 3, '取り込みで3手');
-  check((await evalJs('document.getElementById("dmg").textContent')).includes('♟'), '取った駒表示にポーン');
-
-  // ---- 待った ----
+  // ---- 1手戻る ----
   await clickEl('#btnUndo');
-  check(await evalJs('document.getElementById("undoModal").classList.contains("hidden") === false'), '待った確認モーダル');
   await clickEl('#btnUndoOk');
-  check((await evalJs('window.__checkmeigo.chessLog().length')) === 2, '待ったで1手戻る');
+  st = await stones();
+  check(st.every(v => v === 0), '待ったで石が消える');
+  check((await evalJs('window.__checkmeigo.turn()')) === 'w', '待ったで手番が白へ');
 
-  // ---- プロモーションUI（hポーンを成らせる）----
-  await clickEl('#btnOpenSettings');
-  await clickEl('#btnNew');   // チェスを初期局面へ
-  check((await evalJs('document.getElementById("setModal").classList.contains("hidden")')) === true, 'ニューゲームで設定が閉じる');
-  check((await evalJs('window.__checkmeigo.chessLog().length')) === 0, 'ニューゲームで棋譜クリア');
-  // 1.h4 a6 2.h5 a5 3.h6 a4 4.hxg7 a3 5.gxh8=Q
+  // ---- 駒を動かす（e2-e4）----
+  await clickSquare(6, 4);
+  await clickSquare(4, 4);
+  const fen = await evalJs('window.__checkmeigo.fen()');
+  check(fen.split(' ')[1] === 'b', '駒を動かすと手番が黒へ', fen);
+  check((await evalJs('window.__checkmeigo.log().length')) === 1, '棋譜が1手');
+
+  // ---- 交点とマス中央の判定が分かれている ----
+  await clickIntersection(0, 0);
+  st = await stones();
+  check(st[0] === 1, '交点タップは黒石（マス選択と競合しない）');
+  const before = (await stones()).filter(Boolean).length;
+  await clickSquare(0, 0);
+  const afterCount = (await stones()).filter(Boolean).length;
+  check(afterCount === before, 'マス中央タップでは石は増えない');
+
+  // ---- 実戦手順（石と駒の交互操作が壊れないか）----
+  await evalJs('document.getElementById("btnNew").click()');
+  await wait(200);
   const seq = [
-    [6,7],[4,7], [1,0],[2,0],
-    [4,7],[3,7], [2,0],[3,0],
-    [3,7],[2,7], [3,0],[4,0],
-    [2,7],[1,6], [4,0],[5,0],
-    [1,6],[0,7]
+    [6,4],[4,4], // e4
+    [1,4],[3,4], // e5
+    [7,5],[4,2], // Bc4
+    [0,6],[2,5]  // Nc6
   ];
-  for (const [r,c] of seq) await clickSquare(r,c);
-  check(await evalJs('document.getElementById("promoModal").classList.contains("hidden") === false'), 'プロモーション選択モーダル表示');
-  await clickEl('#promoBtns button[data-promo="q"]');
-  let fen2 = await evalJs('window.__checkmeigo.fen()');
-  check(fen2.split(' ')[0].startsWith('rnbqkbnQ'), 'プロモーションでクイーン配置', fen2);
-  check((await evalJs('window.__checkmeigo.chessLog().slice(-1)[0]')).includes('=Q'), '棋譜に =Q');
+  for (const [r,c] of seq) await clickSquare(r, c);
+  await clickIntersection(5, 2); // 黒の石を1つ
+  const state = JSON.parse(await evalJs('JSON.stringify({turn:window.__checkmeigo.turn(),over:window.__checkmeigo.over(),log:window.__checkmeigo.log()})'));
+  check(state.turn === 'b' && !state.over, '石を挟んでも対局が継続', JSON.stringify(state.log));
+  check(state.log.some(x => x.includes('石')), '棋譜に石が混在');
 
   // ---- 盤面反転 ----
-  await clickEl('#btnPass');
-  check((await evalJs('document.getElementById("btnPass").textContent')).includes('盤面'), '反転ボタン表示切替');
-  await clickEl('#btnPass');
-  check((await evalJs('window.__checkmeigo.game()')) === 'chess', '反転後もチェス');
+  const fen2 = await evalJs('window.__checkmeigo.fen()');
+  await clickEl('#btnFlip');
+  check((await evalJs('window.__checkmeigo.fen()')) === fen2, '盤面反転しても局面は不変');
+  await clickEl('#btnFlip');
 
-  const shotChess = await send('Page.captureScreenshot', { format: 'png' });
-  fs.writeFileSync(path.join(OUT_DIR, 'chess-board.png'), Buffer.from(shotChess.data, 'base64'));
+  // ---- ルール・設定モーダル ----
+  await clickEl('#btnOpenRules');
+  check(await evalJs('document.getElementById("rulesModal").classList.contains("hidden") === false'), 'ルールモーダルが開く');
+  check((await evalJs('document.getElementById("rulesModal").textContent')).includes('未定'), 'ルールに未定項目の記載');
+  await clickEl('#btnRulesDone');
+  check(await evalJs('document.getElementById("rulesModal").classList.contains("hidden")'), 'ルールモーダルが閉じる');
 
-  // ---- 囲碁に切替 ----
-  await clickEl('#tabGo');
-  check(await evalJs('window.__checkmeigo.game()') === 'go', '囲碁タブに切替');
-  check((await evalJs('document.getElementById("btnPass").textContent')) === 'パス', '囲碁ではボタンがパス');
+  // ---- テーマ切替 ----
+  await clickEl('#btnOpenSettings');
+  await evalJs(`[...document.querySelectorAll('#themeList button')].find(b=>b.textContent.includes('和風')).click()`);
+  await wait(250);
+  check((await evalJs('window.__checkmeigo.themeId()')) === 'go', '和風テーマに切替');
+  await clickEl('#btnCloseSettings');
 
-  const goRect = JSON.parse(await evalJs('JSON.stringify(document.getElementById("cv").getBoundingClientRect())'));
-  const gpad = goRect.width * 0.085, gcell = (goRect.width - gpad * 2) / 8;
-  async function clickGo(r, c) {
-    const x = goRect.left + gpad + c * gcell, y = goRect.top + gpad + r * gcell;
-    await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
-    await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
-    await wait(150);
-  }
-  await clickGo(4, 4);
-  const board = await evalJs('JSON.stringify(window.__checkmeigo.goBoard())');
-  const gb = JSON.parse(board);
-  check(gb[4 * 9 + 4] === 1, '囲碁: 天元に黒石');
-  check((await evalJs('window.__checkmeigo.goTurn()')) === 2, '囲碁: 手番が白へ');
-  check((await evalJs('document.getElementById("turnInd").textContent')).includes('白'), '囲碁: 手番表示が白');
+  // ---- スクリーンショット ----
+  const shot = await send('Page.captureScreenshot', { format: 'png' });
+  fs.writeFileSync(path.join(OUT_DIR, 'hybrid-board.png'), Buffer.from(shot.data, 'base64'));
 
-  await clickGo(4, 3);
-  check((await evalJs('window.__checkmeigo.goTurn()')) === 1, '囲碁: 白石で黒番へ');
+  // ---- リロードで局面保持 ----
+  const fenBefore = await evalJs('window.__checkmeigo.fen()');
+  const stonesBefore = JSON.stringify(await stones());
+  await send('Page.reload', {});
+  await wait(1500);
+  await evalJs('document.getElementById("btnCloseSettings").click()');
+  check((await evalJs('window.__checkmeigo.fen()')) === fenBefore, 'リロードで局面が保持される');
+  check(JSON.stringify(await stones()) === stonesBefore, 'リロードで石が保持される');
 
-  // パス２回で終局確認（黒パス→白パス）
-  await clickEl('#btnPass');
-  await wait(150);
-  check((await evalJs('window.__checkmeigo.goPhase()')) === 'playing', '囲碁: 1回目のパスでは継続');
-  await clickEl('#btnPass');
-  await wait(200);
-  check((await evalJs('window.__checkmeigo.goPhase()')) === 'dead', '囲碁: 連続パスで終局確認');
-  check(await evalJs('document.getElementById("bnDead").classList.contains("hidden") === false'), '囲碁: 死に石バナー表示');
-
-  const shotGo = await send('Page.captureScreenshot', { format: 'png' });
-  fs.writeFileSync(path.join(OUT_DIR, 'go-board.png'), Buffer.from(shotGo.data, 'base64'));
-
-  // 集計
-  await clickEl('#btnDeadOk');
-  check((await evalJs('document.getElementById("resModal").classList.contains("hidden") === false')), '囲碁: 結果モーダル表示');
-  const shotRes = await send('Page.captureScreenshot', { format: 'png' });
-  fs.writeFileSync(path.join(OUT_DIR, 'go-result.png'), Buffer.from(shotRes.data, 'base64'));
-
-  // 結果を閉じてニューゲーム
+  // ---- 投了（2タップ確認）----
+  await clickEl('#btnResign');
+  check((await evalJs('document.getElementById("btnResign").textContent')).includes('本当'), '投了は1タップ目で確認');
+  await clickEl('#btnResign');
+  await wait(300);
+  check(await evalJs('window.__checkmeigo.over()'), '投了で対局終了');
+  check(await evalJs('document.getElementById("resModal").classList.contains("hidden") === false'), '結果モーダル表示');
   await clickEl('#btnAgain');
-  check((await evalJs('window.__checkmeigo.goBoard().every(v => v === 0)')), 'ニューゲームで盤面クリア');
+  check((await evalJs('window.__checkmeigo.stones()')).every(v => v === 0), 'もう一度遊ぶでリセット');
 
-  // 例外・エラーログ
   check(issues.length === 0, 'JS例外/console.error なし', issues.join(' | '));
 
   console.log(`\nE2E smoke: ${pass} passed, ${fail} failed`);

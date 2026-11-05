@@ -14,6 +14,7 @@ canvas{display:block;touch-action:manipulation}
 .opt.on{background:#171717;color:#fff}
 .dot{display:inline-block;width:11px;height:11px;border-radius:50%;border:1.5px solid;vertical-align:-1px;margin-right:3px}
 #moveLog{scrollbar-width:thin}
+#toast{pointer-events:none;transition:opacity .25s}
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:rgba(150,150,150,.3);border-radius:3px}
 </style>
 </head>
@@ -30,52 +31,33 @@ canvas{display:block;touch-action:manipulation}
     </div>
   </header>
 
-  <div class="card w-full p-2 rounded-xl flex gap-2 text-sm" role="tablist" aria-label="ゲーム選択">
-    <button id="tabChess" data-game="chess" class="opt flex-1" role="tab">♞ チェス</button>
-    <button id="tabGo" data-game="go" class="opt flex-1" role="tab">● 囲碁 9路</button>
-    <button id="tabHybrid" class="opt flex-1" disabled title="ルール未定のため準備中">＋ 混合(準備中)</button>
-  </div>
-
   <div class="card w-full p-3.5 sm:p-4 rounded-xl flex flex-col gap-3 text-sm sm:text-base">
     <div class="flex items-center justify-between font-medium">
       <div class="flex items-center gap-2"><span class="opacity-70">手番:</span><span id="turnInd" class="font-bold underline decoration-2 underline-offset-4" aria-live="polite"></span></div>
-      <div id="modeBadge" class="text-xs px-2.5 py-1 rounded-full font-semibold border opacity-80"></div>
+      <div id="modeBadge" class="text-xs px-2.5 py-1 rounded-full font-semibold border opacity-80">チェックメイゴ v0</div>
     </div>
-    <div class="flex items-center justify-between text-xs sm:text-sm pt-1 border-t border-current/10">
-      <div class="flex-1 min-w-0 flex flex-col gap-1"><span class="opacity-70" id="countLabel">取った駒:</span><span id="dmg" class="flex flex-wrap gap-x-3 gap-y-1 min-w-0"></span></div>
-      <div id="komiBox" class="flex items-center gap-1.5"><span class="opacity-70">コミ:</span><span class="font-bold">なし</span></div>
+    <div class="flex items-start justify-between gap-3 text-xs sm:text-sm pt-1 border-t border-current/10">
+      <div class="flex-1 min-w-0 flex flex-col gap-1"><span class="opacity-70" id="countLabel">石 / 取った駒:</span><span id="dmg" class="flex flex-wrap gap-x-3 gap-y-1 min-w-0"></span></div>
     </div>
     <div id="moveLog" class="text-[11px] sm:text-xs opacity-80 leading-relaxed max-h-16 overflow-y-auto border-t border-current/10 pt-1" aria-live="polite"></div>
   </div>
 
   <div class="w-full flex justify-center items-center relative">
-    <canvas id="cv" class="w-full aspect-square cursor-pointer max-w-[520px] rounded-lg" role="img" aria-label="チェックメイゴの盤面"></canvas>
+    <canvas id="cv" class="w-full aspect-square cursor-pointer max-w-[520px] rounded-lg" role="img" aria-label="チェックメイゴの盤面（マスの中央に駒、交点に石）"></canvas>
+    <div id="toast" class="hidden absolute bottom-3 left-1/2 -translate-x-1/2 z-10 px-3 py-2 rounded-full bg-neutral-900/90 text-white text-xs font-bold shadow-lg whitespace-nowrap"></div>
   </div>
 
   <div class="w-full flex justify-between items-center gap-3">
     <button id="btnUndo" class="btn flex-1 py-2.5 px-4 text-xs sm:text-sm font-bold rounded-xl hover:opacity-80 active:scale-95 transition-all shadow-sm disabled:opacity-40">1手戻る</button>
-    <button id="btnPass" class="btn flex-1 py-2.5 px-4 text-xs sm:text-sm font-bold rounded-xl hover:opacity-80 active:scale-95 transition-all shadow-sm">パス</button>
+    <button id="btnFlip" class="btn flex-1 py-2.5 px-4 text-xs sm:text-sm font-bold rounded-xl hover:opacity-80 active:scale-95 transition-all shadow-sm">盤面反転</button>
     <button id="btnResign" class="flex-1 py-2.5 px-4 text-xs sm:text-sm font-bold border border-red-500/50 text-red-600 rounded-xl hover:bg-red-500/10 active:scale-95 transition-all shadow-sm">投了</button>
-  </div>
-
-  <div id="bnDead" class="hidden w-full flex-col gap-2 p-3 bg-amber-50 text-amber-900 text-xs sm:text-sm rounded-xl border border-amber-200 shadow-sm">
-    <div class="flex items-center justify-between font-bold"><span>⚠️ 終局・死に石確認</span><span id="deadCount" class="text-xs font-semibold opacity-80">自動判定中…</span></div>
-    <p class="text-xs text-amber-800/90 leading-relaxed">死んでいる可能性が高い連を自動で選択しました。×印を確認し、判定が違う連はタップして切り替えてください。確定後、死に石を取り除いて「地＋盤上の石」で集計します（中国ルール式）。</p>
-    <div class="flex gap-2 pt-1">
-      <button id="btnDeadRecheck" class="flex-1 py-1.5 px-3 bg-white border border-amber-300 font-bold rounded-lg hover:bg-amber-100 text-amber-900">自動判定をやり直す</button>
-      <button id="btnDeadClear" class="flex-1 py-1.5 px-3 bg-white border border-amber-300 font-bold rounded-lg hover:bg-amber-100 text-amber-900">選択を全解除</button>
-    </div>
-    <div class="flex gap-2">
-      <button id="btnDeadCancel" class="flex-1 py-1.5 px-3 bg-white border border-amber-300 font-bold rounded-lg hover:bg-amber-100 text-amber-900">対局再開</button>
-      <button id="btnDeadOk" class="flex-1 py-1.5 px-3 bg-amber-900 text-white font-bold rounded-lg hover:bg-amber-800">死に石を除去して集計</button>
-    </div>
   </div>
 
   <div id="bnResult" class="hidden w-full items-center justify-between py-2 px-3 bg-neutral-100 text-xs sm:text-sm rounded-lg text-neutral-800 border border-neutral-200">
     <span class="font-medium">対局終了</span><button id="btnShowResult" class="font-bold underline hover:opacity-70">結果を見る</button>
   </div>
 
-  <p class="text-xs opacity-60 text-center leading-relaxed" id="hint">チェス: 自分の駒をタップ→行き先をタップ</p>
+  <p class="text-xs opacity-60 text-center leading-relaxed" id="hint">駒: マス中央をタップ→移動先 / 石: 交点をタップ</p>
 </div>
 <div></div>
 
@@ -83,7 +65,7 @@ canvas{display:block;touch-action:manipulation}
 <div id="undoModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
   <div class="bg-white text-neutral-900 p-6 max-w-sm w-full text-center flex flex-col gap-5 rounded-2xl shadow-2xl border border-neutral-200">
     <h2 class="text-xl font-extrabold">1手戻りますか？</h2>
-    <p class="text-sm text-neutral-600">直前の着手（またはパス）を取り消します。</p>
+    <p class="text-sm text-neutral-600">直前の着手（駒・石）を取り消します。</p>
     <div class="flex flex-col gap-2">
       <button id="btnUndoOk" class="w-full py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white text-sm font-bold rounded-xl">1手戻る</button>
       <button id="btnUndoNo" class="w-full py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-sm font-bold rounded-xl">キャンセル</button>
@@ -109,15 +91,8 @@ canvas{display:block;touch-action:manipulation}
 <div id="setModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
   <div class="bg-white text-neutral-900 p-5 sm:p-6 max-w-md w-full rounded-2xl shadow-2xl flex flex-col gap-5 border border-neutral-200 max-h-[90vh] overflow-y-auto">
     <div class="flex items-center justify-between border-b pb-3 border-neutral-200">
-      <h2 class="text-xl font-bold">ゲーム設定</h2>
+      <h2 class="text-xl font-bold">設定</h2>
       <button id="btnCloseSettings" aria-label="閉じる" class="w-10 h-10 flex items-center justify-center rounded-full text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 text-xl font-bold shrink-0">✕</button>
-    </div>
-    <div class="flex flex-col gap-1.5">
-      <label class="text-xs font-bold tracking-wider text-neutral-500">ゲーム</label>
-      <div class="grid grid-cols-2 gap-2" id="gameBtns">
-        <button data-v="chess" class="opt">♞ チェス</button><button data-v="go" class="opt">● 囲碁 9路</button>
-      </div>
-      <p class="text-[11px] leading-relaxed text-neutral-500">混合（チェスの升目の交点に碁石）はルール未定のため準備中です。盤の関係だけ共有しています。</p>
     </div>
     <div class="flex items-center justify-between pt-1">
       <span class="text-sm font-bold text-neutral-700">効果音 (SE)</span>
@@ -134,10 +109,12 @@ canvas{display:block;touch-action:manipulation}
 <!-- rules modal -->
 <div id="rulesModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
   <div class="bg-white text-neutral-900 p-5 sm:p-6 max-w-md w-full rounded-2xl shadow-2xl flex flex-col gap-4 border border-neutral-200 max-h-[88vh] overflow-y-auto">
-    <div class="flex items-center justify-between border-b pb-3 border-neutral-200"><h2 class="text-xl font-extrabold">チェックメイゴ ルール</h2><button id="btnCloseRules" class="w-10 h-10 flex items-center justify-center rounded-full text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 text-xl font-bold shrink-0" aria-label="閉じる">✕</button></div>
-    <section class="flex flex-col gap-1"><h3 class="font-bold">♞ チェス</h3><p class="text-sm leading-relaxed">白が先手。駒の動き・取り方・チェック・チェックメイト・ステイルメイト、キャスリング、アンパッサン、プロモーション（選択式）、50手ルールと駒不足ドロー対応。投了・待った・盤面反転あり。持ち時間は未定のため無制限です。</p></section>
-    <section class="flex flex-col gap-1"><h3 class="font-bold">● 囲碁 9路</h3><p class="text-sm leading-relaxed">黒が先手。空点に1子ずつ打ち、呼吸点が無くなった連は取り上げ。自殺手・コウ（同一局面の繰り返し）は禁止。双方連続パスで終局確認に入り、死に石を指定して取り除いた後、中国ルール式（地＋盤上の石）で集計します。コミなし。</p></section>
-    <section class="flex flex-col gap-1"><h3 class="font-bold">＋ 混合（未定）</h3><p class="text-sm leading-relaxed">将来、チェス盤の升目の交点（9×9）に碁石を置けるようにします。石が駒の動きに与える影響などのルールは未定のため、本バージョンでは決めません。</p></section>
+    <div class="flex items-center justify-between border-b pb-3 border-neutral-200"><h2 class="text-xl font-extrabold">チェックメイゴ ルール（v0）</h2><button id="btnCloseRules" class="w-10 h-10 flex items-center justify-center rounded-full text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 text-xl font-bold shrink-0" aria-label="閉じる">✕</button></div>
+    <section class="flex flex-col gap-1"><h3 class="font-bold">1. 手番と行動</h3><p class="text-sm leading-relaxed">白が先手。1手につき「駒を1つ動かす」か「交点に石を1つ置く」のどちらかを行います。</p></section>
+    <section class="flex flex-col gap-1"><h3 class="font-bold">2. 駒（チェス）</h3><p class="text-sm leading-relaxed">駒の動き・取り方・チェック・チェックメイト、キャスリング、アンパッサン、プロモーション（選択式）は通常のチェス通りです。王手されているときは石を置けず、駒で受けなければなりません。</p></section>
+    <section class="flex flex-col gap-1"><h3 class="font-bold">3. 石（囲碁）</h3><p class="text-sm leading-relaxed">石はマス目の交点（9×9）に置きます。上下左右の呼吸点がすべて無くなった連は取り上げられます。自殺手と、同一局面を繰り返す手は禁止です。</p></section>
+    <section class="flex flex-col gap-1"><h3 class="font-bold">4. 勝敗</h3><p class="text-sm leading-relaxed">チェックメイトで勝ち。投了もあり。50手ルール・駒不足・ステイルメイト（駒も石も打てない）は引き分けです。</p></section>
+    <section class="flex flex-col gap-1"><h3 class="font-bold">5. 未定のまま残していること</h3><p class="text-sm leading-relaxed">石が駒の動きに干渉するか、石による得点・終局条件、王手と石の相互作用などは未定です。v0では駒と石の層を独立させ、行動だけを共有しています。</p></section>
     <button id="btnRulesDone" class="w-full py-2.5 bg-neutral-900 text-white text-sm font-bold rounded-xl">閉じる</button>
   </div>
 </div>
@@ -158,15 +135,16 @@ canvas{display:block;touch-action:manipulation}
 <script>
 'use strict';
 /* ============================================================
- * チェックメイゴ CHECKMEIGO
- * HEXAGO (cerevisiae-fii/hexago) から流用したデザインシステム:
- *   Tailwind土台 / CSS変数テーマ(--bg,--tx,--card,--bd) / .card .btn .opt .dot
- *   ヘッダ+設定・ルールボタン / 手番カード / canvas / 3ボタン(戻る・パス・投了)
- *   終局確認バナー / 結果バナー / undo・設定・ルール・結果モーダル
- *   テーマ切替 / 効果音 / sessionStorage保存
- * 削除したもの: PeerJSオンライン対戦 / 六角盤ジオメトリ / MCTSエンジン
- *   可変人数(2〜6人) / AI席切替 / ベンチ・E2E・WASM
- * 中央の盤は差し替え: チェス8×8 / 囲碁9路。AIなしの2人対戦。
+ * チェックメイゴ CHECKMEIGO v0
+ * チェスの盤（8×8マス）と囲碁の交点（9×9）を同じ盤に重ね、
+ * 「1手＝駒を動かす or 交点に石を置く」で遊ぶ混合ゲーム。
+ *
+ * デザインシステムのみ HEXAGO (cerevisiae-fii/hexago) から流用:
+ *   Tailwind土台 / CSS変数テーマ / .card .btn .opt .dot / ヘッダ＋設定・ルール
+ *   手番カード / canvas / 3ボタン / 結果バナー / 各モーダル / テーマ切替 / 効果音 / sessionStorage
+ * 削除したもの: PeerJSオンライン対戦 / 六角盤ジオメトリ / MCTS / 可変人数 / AI / ベンチ・E2E・WASM
+ * 差し替え: 中央の盤（マスの中央に駒、交点に石）
+ * 未定: 石と駒の干渉、石による得点・終局条件 → v0では層を独立（行動のみ共有）
  * ============================================================ */
 
 // ===== テーマ（HEXAGOのデザインシステムを流用） =====
@@ -273,6 +251,27 @@ function chessFromFen(fen) {
   };
 }
 function chessNew() { return chessFromFen(CHESS_START); }
+function chessToFen(st) {
+  let out = '';
+  for (let r = 0; r < 8; r++) {
+    let run = 0;
+    for (let c = 0; c < 8; c++) {
+      const p = st.b[chessIdx(r, c)];
+      if (!p) run++;
+      else { if (run) { out += run; run = 0; } out += p; }
+    }
+    if (run) out += run;
+    if (r < 7) out += '/';
+  }
+  let rights = '';
+  if (st.cast.wk) rights += 'K';
+  if (st.cast.wq) rights += 'Q';
+  if (st.cast.bk) rights += 'k';
+  if (st.cast.bq) rights += 'q';
+  if (!rights) rights = '-';
+  const ep = st.ep >= 0 ? chessSqName(st.ep) : '-';
+  return out + ' ' + st.t + ' ' + rights + ' ' + ep + ' ' + st.half + ' ' + st.full;
+}
 function chessIsAttacked(bd, sq, by) {
   const [r, c] = chessRC(sq);
   // ポーン
@@ -514,7 +513,7 @@ function chessMoveStr(st, m) {
   if (m.castle) return m.castle === 'K' ? 'O-O' : 'O-O-O';
   const p = st.b[m.from];
   const isCapture = !!st.b[m.to] || !!m.epcap;
-  const cap = isCapture ? 'x' : '-';
+  const cap = isCapture ? 'x' : '';
   const pr = m.promo ? '=' + m.promo.toUpperCase() : '';
   if (p.toLowerCase() === 'p') {
     return (isCapture ? 'abcdefgh'[m.from % 8] : '') + cap + chessSqName(m.to) + pr;
@@ -680,7 +679,7 @@ function goScore(st, dead) {
 }
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    chessFromFen, chessNew, chessLegal, chessApply, chessUndo, chessStatus,
+    chessFromFen, chessNew, chessToFen, chessLegal, chessApply, chessUndo, chessStatus,
     chessInCheck, chessIsAttacked, chessPseudo, chessMoveStr, chessCaptures,
     chessSqName, chessIdx, chessRC, chessColorOf, chessOpp,
     goNew, goSim, goPlay, goPass, goUndo, goGroup, goLibs, goTerritory, goScore,
@@ -692,78 +691,52 @@ if (typeof module !== 'undefined' && module.exports) {
 // ===== アプリ状態 =====
 const $ = id => document.getElementById(id);
 const cv = $('cv'), ctx = cv.getContext('2d');
-let game = 'chess';
-let chess = chessNew();
-let go = goNew();
+const TURN_NAME = { w: '白', b: '黒' };
+const PT_N = 9; // 交点は9×9
+
+let chess = chessNew();               // 駒・手番・キャスリング・アンパッサン等
+let stones = new Array(PT_N * PT_N).fill(0); // 1=黒石 2=白石
+let stoneSeen = [goHash(stones)];     // 同一局面の繰り返し禁止用
 let flipped = false;
-let prevGo = -1, ptype = 'mouse';
+let sel = -1;                         // 選択中のマス
+let chessLast = null;                 // 直前の駒の手
+let stoneLast = -1;                   // 直前の石
+let snaps = [];                       // 1手戻る用スナップショット
+let over = false, result = null;
+let log = [];
 let pendingPromo = null;
-let resignArmed = false, resignTimer = null;
+let hoverPt = -1;
+let resignArmed = false, resignTimer = null, toastTimer = null;
 const KEY = 'checkmeigo-save-v1';
 
+function stoneColor(t) { return t === 'w' ? 2 : 1; } // 白=2 黒=1
+function stoneCount(c) { let n = 0; for (const v of stones) if (v === c) n++; return n; }
+function turnStoneName(t) { return TURN_NAME[t]; }
+
+// ===== 保存 / 復元 =====
 function save() {
   try {
     sessionStorage.setItem(KEY, JSON.stringify({
-      game, chess: chessSave(), go: goSave(), flipped,
+      fen: chessToFen(chess), stones, seen: stoneSeen,
+      chessLast, stoneLast, log, over, result, flipped,
       themeId: theme.id, sound: snd.on
     }));
   } catch (e) {}
 }
-function chessSave() {
-  return { fen: chessToFen(chess), last: chess.last, log: chess.log.slice(), over: chess.over, result: chess.result, hist: null };
-}
-function chessToFen(st) {
-  let out = '';
-  for (let r = 0; r < 8; r++) {
-    let run = 0;
-    for (let c = 0; c < 8; c++) {
-      const p = st.b[chessIdx(r, c)];
-      if (!p) run++;
-      else { if (run) { out += run; run = 0; } out += p; }
-    }
-    if (run) out += run;
-    if (r < 7) out += '/';
-  }
-  let rights = '';
-  if (st.cast.wk) rights += 'K';
-  if (st.cast.wq) rights += 'Q';
-  if (st.cast.bk) rights += 'k';
-  if (st.cast.bq) rights += 'q';
-  if (!rights) rights = '-';
-  const ep = st.ep >= 0 ? chessSqName(st.ep) : '-';
-  return `${out} ${st.t} ${rights} ${ep} ${st.half} ${st.full}`;
-}
-function goSave() {
-  return { b: go.b.slice(), t: go.t, passes: go.passes, over: go.over, result: go.result,
-    phase: go.phase, dead: go.dead.slice(), last: go.last, seen: go.seen.slice(), log: go.log.slice(), n: go.n };
-}
 function load() {
   try {
     const s = JSON.parse(sessionStorage.getItem(KEY) || 'null');
-    if (!s) return false;
-    if (s.game === 'chess' || s.game === 'go') game = s.game;
-    if (s.chess && s.chess.fen) {
-      const st = chessFromFen(s.chess.fen);
-      st.log = Array.isArray(s.chess.log) ? s.chess.log.slice() : [];
-      st.over = !!s.chess.over;
-      st.result = s.chess.result || null;
-      st.last = s.chess.last || null;
-      chess = st;
-    }
-    if (s.go && Array.isArray(s.go.b) && s.go.b.length === GO_N * GO_N) {
-      const st = goNew();
-      st.b = s.go.b.slice();
-      st.t = s.go.t === 2 ? 2 : 1;
-      st.passes = s.go.passes | 0;
-      st.over = !!s.go.over;
-      st.result = s.go.result || null;
-      st.phase = s.go.phase === 'dead' ? 'dead' : 'playing';
-      st.dead = Array.isArray(s.go.dead) ? s.go.dead.slice() : [];
-      st.last = Number.isInteger(s.go.last) ? s.go.last : -1;
-      st.seen = Array.isArray(s.go.seen) && s.go.seen.length ? s.go.seen.slice() : [goHash(st.b)];
-      st.log = Array.isArray(s.go.log) ? s.go.log.slice() : [];
-      go = st;
-    }
+    if (!s || !s.fen) return false;
+    const st = chessFromFen(s.fen);
+    st.hist = [];
+    chess = st;
+    if (Array.isArray(s.stones) && s.stones.length === PT_N * PT_N) stones = s.stones.slice();
+    stoneSeen = Array.isArray(s.seen) && s.seen.length ? s.seen.slice() : [goHash(stones)];
+    chessLast = s.chessLast || null;
+    stoneLast = Number.isInteger(s.stoneLast) ? s.stoneLast : -1;
+    log = Array.isArray(s.log) ? s.log.slice() : [];
+    over = !!s.over;
+    result = s.result || null;
     flipped = !!s.flipped;
     if (s.themeId && THEMES[s.themeId]) theme = THEMES[s.themeId];
     if (s.sound === false) snd.on = false;
@@ -772,39 +745,30 @@ function load() {
 }
 
 // ===== 座標 =====
-function chessMetrics() {
+function boardMetrics() {
   const w = cv.getBoundingClientRect().width, pad = w * 0.06, cell = (w - pad * 2) / 8;
   return { w, pad, cell };
 }
-function chessSqAt(e) {
-  const { pad, cell } = chessMetrics(), rc = cv.getBoundingClientRect();
-  const x = e.clientX - rc.left - pad, y = e.clientY - rc.top - pad;
-  if (x < 0 || y < 0 || x >= cell * 8 || y >= cell * 8) return -1;
-  let c = Math.floor(x / cell), r = Math.floor(y / cell);
-  if (flipped) { c = 7 - c; r = 7 - r; }
-  return chessIdx(r, c);
-}
-function goMetrics() {
-  const w = cv.getBoundingClientRect().width, pad = w * 0.085, cell = (w - pad * 2) / (GO_N - 1);
-  return { w, pad, cell };
-}
-function goHit(e) {
-  const { pad, cell } = goMetrics(), rc = cv.getBoundingClientRect();
+function sqView(bi) { const r = (bi / 8) | 0, c = bi % 8; return flipped ? [7 - r, 7 - c] : [r, c]; }
+function sqBoard(vr, vc) { return flipped ? chessIdx(7 - vr, 7 - vc) : chessIdx(vr, vc); }
+function ptView(i) { const r = (i / PT_N) | 0, c = i % PT_N; return flipped ? [8 - r, 8 - c] : [r, c]; }
+function ptBoard(vr, vc) { return flipped ? (8 - vr) * PT_N + (8 - vc) : vr * PT_N + vc; }
+function pick(e) {
+  const { pad, cell } = boardMetrics(), rc = cv.getBoundingClientRect();
   const x = e.clientX - rc.left, y = e.clientY - rc.top;
-  let bi = -1, bd = cell * 0.5;
-  for (let i = 0; i < GO_N * GO_N; i++) {
-    const r = (i / GO_N) | 0, c = i % GO_N;
-    const d = Math.hypot(pad + c * cell - x, pad + r * cell - y);
-    if (d < bd) { bd = d; bi = i; }
-  }
-  return bi;
+  const vc = Math.round((x - pad) / cell), vr = Math.round((y - pad) / cell);
+  const hasPt = vc >= 0 && vc <= 8 && vr >= 0 && vr <= 8;
+  const near = hasPt ? Math.hypot(x - (pad + vc * cell), y - (pad + vr * cell)) : 1e9;
+  const inBoard = x >= pad && y >= pad && x < pad + cell * 8 && y < pad + cell * 8;
+  const sc = Math.floor((x - pad) / cell), sr = Math.floor((y - pad) / cell);
+  return { near, pt: hasPt ? ptBoard(vr, vc) : -1, sq: inBoard ? sqBoard(sr, sc) : -1, cell };
 }
 function shade(hex, f) {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
   if (!m) return hex;
   const n = parseInt(m[1], 16);
-  const clamp = v => Math.max(0, Math.min(255, Math.round(v)));
-  const r = clamp(((n >> 16) & 255) * f), g = clamp(((n >> 8) & 255) * f), b = clamp((n & 255) * f);
+  const cl = v => Math.max(0, Math.min(255, Math.round(v)));
+  const r = cl(((n >> 16) & 255) * f), g = cl(((n >> 8) & 255) * f), b = cl((n & 255) * f);
   return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
 }
 function luminance(hex) {
@@ -813,94 +777,131 @@ function luminance(hex) {
   const n = parseInt(m[1], 16);
   return (((n >> 16) & 255) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114) / 255;
 }
-function chessBoardColors() {
+function boardColors() {
   const base = theme.board;
   if (luminance(base) < 0.4) return { light: shade(base, 2.1), dark: base };
   return { light: base, dark: shade(base, 0.72) };
 }
 
-// ===== 入力 =====
-cv.addEventListener('pointerdown', e => ptype = e.pointerType || 'mouse');
-cv.addEventListener('pointermove', e => ptype = e.pointerType || 'mouse');
-cv.addEventListener('mousemove', e => {
-  if (ptype === 'touch') return;
-  if (game !== 'go') return;
-  if (go.over || go.phase !== 'playing') return;
-  const i = goHit(e);
-  if (i !== prevGo) { prevGo = i; render(); }
-});
-cv.addEventListener('mouseleave', () => { if (game !== 'go') return; prevGo = -1; render(); });
-cv.addEventListener('click', e => {
-  snd.init();
-  if (game === 'chess') onChessTap(e);
-  else onGoTap(e);
-});
-function onChessTap(e) {
-  if (chess.over) return;
-  const i = chessSqAt(e);
-  if (i < 0) return;
-  const legal = chessLegal(chess);
-  if (chess.sel >= 0) {
-    const cand = legal.filter(m => m.from === chess.sel && m.to === i);
-    if (cand.length) {
-      const promos = cand.filter(m => m.promo);
-      if (promos.length) {
-        pendingPromo = promos;
-        $('promoModal').classList.remove('hidden');
-        return;
-      }
-      commitChess(cand[0]);
-      return;
-    }
-  }
-  if (chess.b[i] && chessColorOf(chess.b[i]) === chess.t) {
-    chess.sel = chess.sel === i ? -1 : i;
-    snd.click(); render();
-  } else {
-    chess.sel = -1; render();
-  }
+// ===== 手番 / 行動 =====
+function inCheck() { return chessInCheck(chess); }
+function canMovePieces() { return chessLegal(chess).length > 0; }
+function onlyStones() { return !over && !inCheck() && !canMovePieces(); }
+
+function pushSnap() {
+  snaps.push({
+    b: chess.b.slice(), t: chess.t, cast: Object.assign({}, chess.cast),
+    ep: chess.ep, half: chess.half, full: chess.full,
+    stones: stones.slice(), seenLen: stoneSeen.length,
+    chessLast: chessLast ? { from: chessLast.from, to: chessLast.to } : null,
+    stoneLast, logLen: log.length, over, result
+  });
+}
+function undo() {
+  const s = snaps.pop();
+  if (!s) return false;
+  chess.b = s.b; chess.t = s.t; chess.cast = s.cast; chess.ep = s.ep;
+  chess.half = s.half; chess.full = s.full; chess.hist = [];
+  stones = s.stones; stoneSeen.length = s.seenLen;
+  chessLast = s.chessLast; stoneLast = s.stoneLast;
+  log.length = s.logLen;
+  over = s.over; result = s.result;
+  sel = -1;
+  return true;
+}
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.add('hidden'), 1900);
 }
 function commitChess(m) {
+  pushSnap();
   const notation = chessMoveStr(chess, m);
   const color = chess.t;
   const captured = chess.b[m.to] || m.epcap;
   chessApply(chess, m);
-  chess.sel = -1;
-  chess.log.push((color === 'w' ? '白' : '黒') + notation);
+  chessLast = { from: m.from, to: m.to }; stoneLast = -1; sel = -1;
+  log.push(`${TURN_NAME[color]}${notation}`);
   if (captured) snd.cap(); else snd.place();
-  const st = chessStatus(chess);
-  if (st.done) finishChess(st);
+  checkEndAfterMove();
   after();
 }
-function finishChess(st) {
-  chess.over = true;
+function placeStone(i) {
+  if (stones[i]) return;
+  if (inCheck()) { toast('王手されています。石ではなく駒で受けてください'); return; }
+  const color = stoneColor(chess.t);
+  const r = goSim(stones, PT_N, i, color, stoneSeen);
+  if (!r) { toast('そこには打てません（自殺手・同一局面の繰り返し）'); return; }
+  pushSnap();
+  const capCount = r.cap.length;
+  stones = r.a;
+  stoneSeen.push(goHash(stones));
+  stoneLast = i; chessLast = null;
+  log.push(`${turnStoneName(chess.t)}石${goPosName(PT_N, i)}`);
+  chess.t = chessOpp(chess.t);
+  if (capCount) snd.cap(); else snd.place();
+  after();
+}
+function finishGame(st) {
+  over = true;
   const title = st.winner ? (st.winner === 'w' ? '白の勝ち' : '黒の勝ち') : '引き分け';
-  chess.result = {
+  result = {
     title,
     details: `<div class="flex justify-between"><span>理由</span><strong>${st.reason}</strong></div>`
-      + `<div class="flex justify-between"><span>手数</span><strong>${chess.hist.length}手</strong></div>`
+      + `<div class="flex justify-between"><span>手数</span><strong>${log.length}手</strong></div>`
+      + `<div class="flex justify-between"><span>石</span><strong>黒 ${stoneCount(1)} / 白 ${stoneCount(2)}</strong></div>`
   };
   snd.win();
-  setTimeout(showResult, 250);
+  setTimeout(showResult, 200);
 }
-function onGoTap(e) {
-  if (go.over) return;
-  const i = goHit(e);
-  if (i < 0) return;
-  if (go.phase === 'dead') {
-    if (!go.b[i]) return;
-    const g = goGroup(go.b, go.n, i);
-    const isDead = go.dead.includes(i);
-    go.dead = isDead ? go.dead.filter(x => !g.includes(x)) : [...new Set([...go.dead, ...g])];
-    snd.click(); updateUI(); save();
+function checkEndAfterMove() {
+  const st = chessStatus(chess);
+  if (st.done) { finishGame(st); return; }
+  if (!st.check && chessLegal(chess).length === 0) {
+    if (!stones.includes(0)) {
+      finishGame({ done: true, winner: null, reason: 'ステイルメイト（空点なし）', check: false });
+    }
+  }
+}
+
+// ===== 入力 =====
+cv.addEventListener('pointerdown', e => { snd.init(); });
+cv.addEventListener('mousemove', e => {
+  if (over) return;
+  const p = pick(e);
+  const next = (sel < 0 && p.pt >= 0 && p.near < p.cell * 0.30 && !stones[p.pt] && !inCheck()) ? p.pt : -1;
+  if (next !== hoverPt) { hoverPt = next; render(); }
+});
+cv.addEventListener('mouseleave', () => { if (hoverPt !== -1) { hoverPt = -1; render(); } });
+cv.addEventListener('click', e => {
+  if (over) return;
+  const p = pick(e);
+  hoverPt = -1;
+  if (sel >= 0) {
+    const cand = chessLegal(chess).filter(m => m.from === sel && m.to === p.sq);
+    if (cand.length) {
+      const promos = cand.filter(m => m.promo);
+      if (promos.length) { pendingPromo = promos; $('promoModal').classList.remove('hidden'); return; }
+      commitChess(cand[0]);
+      return;
+    }
+  }
+  // 石は交点（マスの角）をタップ。マス中央は駒の操作。
+  if (p.pt >= 0 && p.near < p.cell * 0.30 && !stones[p.pt]) {
+    placeStone(p.pt);
+    if (!over) updateUI();
     return;
   }
-  if (ptype !== 'touch' || prevGo === i) {
-    if (goPlay(go, i)) { prevGo = -1; snd.place(); after(); }
+  if (p.sq < 0) { sel = -1; render(); return; }
+  if (chess.b[p.sq] && chessColorOf(chess.b[p.sq]) === chess.t) {
+    sel = sel === p.sq ? -1 : p.sq;
+    snd.click(); render();
   } else {
-    prevGo = i; render();
+    sel = -1; render();
   }
-}
+});
 
 // ===== 描画 =====
 const GLYPH = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' };
@@ -920,132 +921,126 @@ function drawPiece(x, y, size, p) {
   ctx.fillText(g, x, y + size * 0.03);
   ctx.restore();
 }
-function renderChess() {
-  const { w, pad, cell } = chessMetrics();
-  const cols = chessBoardColors();
-  const sq = (r, c) => {
-    let rr = r, cc = c;
-    if (flipped) { rr = 7 - r; cc = 7 - c; }
-    return [pad + cc * cell, pad + rr * cell];
-  };
+function drawStone(x, y, r, color) {
+  const fill = playerFill(color);
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 7);
+  ctx.fillStyle = fill; ctx.fill();
+  // 暗い背景でも石が円盤として読めるよう、淡いハイライトを重ねる
+  const lum = luminance(fill);
+  const grad = ctx.createRadialGradient(x - r * 0.4, y - r * 0.4, r * 0.15, x, y, r * 1.05);
+  if (lum < 0.35) {
+    grad.addColorStop(0, 'rgba(255,255,255,.30)');
+    grad.addColorStop(0.55, 'rgba(255,255,255,0)');
+  } else {
+    grad.addColorStop(0, 'rgba(255,255,255,.55)');
+    grad.addColorStop(0.7, 'rgba(255,255,255,0)');
+    grad.addColorStop(1, 'rgba(0,0,0,.10)');
+  }
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 7);
+  ctx.fillStyle = grad; ctx.fill();
+  ctx.strokeStyle = playerStroke(color);
+  ctx.lineWidth = Math.max(1.2, r * 0.16);
+  ctx.stroke();
+  ctx.restore();
+}
+function render() {
+  const { w, pad, cell } = boardMetrics();
+  const cols = boardColors();
   ctx.fillStyle = theme.board; ctx.fillRect(0, 0, w, w);
-  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
-    const [x, y] = sq(r, c);
-    const i = chessIdx(r, c);
-    ctx.fillStyle = (r + c) % 2 === 0 ? cols.light : cols.dark;
+
+  // マス
+  for (let vr = 0; vr < 8; vr++) for (let vc = 0; vc < 8; vc++) {
+    const bi = sqBoard(vr, vc);
+    const x = pad + vc * cell, y = pad + vr * cell;
+    ctx.fillStyle = (vr + vc) % 2 === 0 ? cols.light : cols.dark;
     ctx.fillRect(x, y, cell, cell);
-    if (chess.last && (chess.last.from === i || chess.last.to === i)) {
+    if (chessLast && (chessLast.from === bi || chessLast.to === bi)) {
       ctx.fillStyle = 'rgba(250,204,21,.45)';
       ctx.fillRect(x, y, cell, cell);
     }
-    if (chess.sel === i) {
+    if (sel === bi) {
       ctx.fillStyle = 'rgba(34,197,94,.40)';
       ctx.fillRect(x, y, cell, cell);
     }
   }
-  if (chess.sel >= 0 && !chess.over) {
-    const targets = chessLegal(chess).filter(m => m.from === chess.sel);
-    const seenTo = new Set();
-    for (const m of targets) {
-      if (seenTo.has(m.to)) continue;
-      seenTo.add(m.to);
-      const [r, c] = chessRC(m.to);
-      const [x, y] = sq(r, c);
-      const occupied = !!chess.b[m.to] || !!m.epcap;
+
+  // 交点マーカーと石
+  for (let vr = 0; vr < PT_N; vr++) for (let vc = 0; vc < PT_N; vc++) {
+    const bi = ptBoard(vr, vc);
+    const x = pad + vc * cell, y = pad + vr * cell;
+    if (stones[bi]) {
+      drawStone(x, y, cell * 0.27, stones[bi]);
+    } else {
       ctx.save();
-      ctx.fillStyle = occupied ? 'rgba(239,68,68,.55)' : 'rgba(34,197,94,.55)';
-      ctx.beginPath();
-      ctx.arc(x + cell / 2, y + cell / 2, cell * (occupied ? 0.42 : 0.16), 0, 7);
-      ctx.fill();
+      ctx.globalAlpha = 0.32;
+      ctx.fillStyle = theme.tx;
+      ctx.beginPath(); ctx.arc(x, y, Math.max(1.3, cell * 0.04), 0, 7); ctx.fill();
       ctx.restore();
     }
   }
-  const checkSq = (!chess.over && chessInCheck(chess)) ? chessKingSq(chess.b, chess.t) : -1;
-  for (let i = 0; i < 64; i++) {
-    const p = chess.b[i];
+  // ホバー中の石プレビュー
+  if (hoverPt >= 0 && !stones[hoverPt] && !over) {
+    const [hvr, hvc] = ptView(hoverPt);
+    ctx.save();
+    ctx.globalAlpha = 0.45;
+    drawStone(pad + hvc * cell, pad + hvr * cell, cell * 0.27, stoneColor(chess.t));
+    ctx.restore();
+  }
+  // 直前の石
+  if (stoneLast >= 0 && stones[stoneLast]) {
+    const [vr, vc] = ptView(stoneLast);
+    const x = pad + vc * cell, y = pad + vr * cell;
+    ctx.beginPath(); ctx.arc(x, y, cell * 0.27 + Math.max(2.5, cell * 0.06), 0, 7);
+    ctx.strokeStyle = '#16a34a'; ctx.lineWidth = Math.max(2, cell * 0.045); ctx.stroke();
+  }
+
+  // 合法手
+  if (sel >= 0 && !over) {
+    const seen = new Set();
+    for (const m of chessLegal(chess).filter(m => m.from === sel)) {
+      if (seen.has(m.to)) continue;
+      seen.add(m.to);
+      const [vr, vc] = sqView(m.to);
+      const x = pad + vc * cell + cell / 2, y = pad + vr * cell + cell / 2;
+      const occupied = !!chess.b[m.to] || !!m.epcap;
+      ctx.save();
+      ctx.fillStyle = occupied ? 'rgba(239,68,68,.55)' : 'rgba(34,197,94,.55)';
+      ctx.beginPath(); ctx.arc(x, y, cell * (occupied ? 0.42 : 0.16), 0, 7); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // 駒
+  const checkSq = (!over && inCheck()) ? chessKingSq(chess.b, chess.t) : -1;
+  for (let bi = 0; bi < 64; bi++) {
+    const p = chess.b[bi];
     if (!p) continue;
-    const [r, c] = chessRC(i);
-    const [x, y] = sq(r, c);
-    if (i === checkSq) {
+    const [vr, vc] = sqView(bi);
+    const x = pad + vc * cell, y = pad + vr * cell;
+    if (bi === checkSq) {
       ctx.fillStyle = 'rgba(239,68,68,.55)';
       ctx.fillRect(x, y, cell, cell);
     }
-    drawPiece(x + cell / 2, y + cell / 2, cell * 0.78, p);
+    drawPiece(x + cell / 2, y + cell / 2, cell * 0.74, p);
   }
+
+  // 座標
   ctx.save();
   ctx.fillStyle = theme.tx; ctx.globalAlpha = 0.6;
   ctx.font = `${Math.max(9, cell * 0.22)}px system-ui`;
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-  for (let c = 0; c < 8; c++) ctx.fillText('abcdefgh'[c], pad + c * cell + 3, w - 4);
-  ctx.textAlign = 'left';
-  for (let r = 0; r < 8; r++) ctx.fillText(String(8 - r), 3, pad + r * cell + cell * 0.75);
+  for (let vc = 0; vc < 8; vc++) {
+    const fileIdx = flipped ? 7 - vc : vc;
+    ctx.fillText('abcdefgh'[fileIdx], pad + vc * cell + 3, w - 4);
+  }
+  for (let vr = 0; vr < 8; vr++) {
+    const rank = flipped ? vr + 1 : 8 - vr;
+    ctx.fillText(String(rank), 3, pad + vr * cell + cell * 0.7);
+  }
   ctx.restore();
   ctx.strokeStyle = theme.line; ctx.lineWidth = 2;
   ctx.strokeRect(pad, pad, cell * 8, cell * 8);
-}
-function renderGo() {
-  const { w, pad, cell } = goMetrics();
-  const pos = i => { const r = (i / GO_N) | 0, c = i % GO_N; return [pad + c * cell, pad + r * cell]; };
-  ctx.fillStyle = theme.board; ctx.fillRect(0, 0, w, w);
-  ctx.strokeStyle = theme.line; ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let k = 0; k < GO_N; k++) {
-    ctx.moveTo(pad, pad + k * cell); ctx.lineTo(pad + (GO_N - 1) * cell, pad + k * cell);
-    ctx.moveTo(pad + k * cell, pad); ctx.lineTo(pad + k * cell, pad + (GO_N - 1) * cell);
-  }
-  ctx.stroke();
-  ctx.fillStyle = theme.line;
-  for (const [r, c] of [[2,2],[2,6],[6,2],[6,6],[4,4]]) {
-    ctx.beginPath(); ctx.arc(pad + c * cell, pad + r * cell, 3.2, 0, 7); ctx.fill();
-  }
-  const r0 = cell * 0.395;
-  go.b.forEach((p, i) => {
-    if (!p) return;
-    const [x, y] = pos(i), dead = go.dead.includes(i);
-    ctx.save();
-    ctx.globalAlpha = dead ? 0.35 : 1;
-    ctx.beginPath(); ctx.arc(x, y, r0, 0, 7);
-    ctx.fillStyle = playerFill(p); ctx.fill();
-    ctx.strokeStyle = playerStroke(p); ctx.lineWidth = Math.max(1.5, cell * 0.05); ctx.stroke();
-    ctx.restore();
-    if (dead) {
-      ctx.save();
-      const o = r0 * 0.5;
-      ctx.beginPath();
-      ctx.moveTo(x - o, y - o); ctx.lineTo(x + o, y + o);
-      ctx.moveTo(x + o, y - o); ctx.lineTo(x - o, y + o);
-      ctx.lineCap = 'round';
-      ctx.strokeStyle = '#000'; ctx.lineWidth = 4; ctx.stroke();
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
-      ctx.restore();
-    }
-  });
-  if (go.last >= 0 && go.b[go.last]) {
-    const [x, y] = pos(go.last);
-    ctx.beginPath(); ctx.arc(x, y, r0 + Math.max(2.5, cell * 0.06), 0, 7);
-    ctx.strokeStyle = '#16a34a'; ctx.lineWidth = Math.max(2, cell * 0.045); ctx.stroke();
-  }
-  if (!go.over && go.phase === 'playing' && prevGo >= 0 && !go.b[prevGo]) {
-    const ok = goSim(go.b, go.n, prevGo, go.t, go.seen);
-    const [x, y] = pos(prevGo);
-    if (ok) {
-      ctx.save(); ctx.globalAlpha = 0.5;
-      ctx.beginPath(); ctx.arc(x, y, r0, 0, 7);
-      ctx.fillStyle = playerFill(go.t); ctx.fill();
-      ctx.restore();
-    }
-  }
-  ctx.save();
-  ctx.fillStyle = theme.tx; ctx.globalAlpha = 0.6;
-  ctx.font = `${Math.max(9, cell * 0.3)}px system-ui`;
-  ctx.textAlign = 'center';
-  for (let c = 0; c < GO_N; c++) ctx.fillText('ABCDEFGHJ'[c], pad + c * cell, w - 4);
-  ctx.textAlign = 'left';
-  for (let r = 0; r < GO_N; r++) ctx.fillText(String(GO_N - r), 3, pad + r * cell + cell * 0.35);
-  ctx.restore();
-}
-function render() {
-  if (game === 'chess') renderChess(); else renderGo();
 }
 function resizeCanvas() {
   const rc = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1;
@@ -1058,64 +1053,25 @@ window.addEventListener('resize', resizeCanvas);
 
 // ===== UI =====
 function dotHtml(p) { return `<span class="dot" style="background:${playerFill(p)};border-color:${playerStroke(p)}"></span>`; }
-function canUndo() {
-  if (game === 'chess') return chess.hist.length > 0;
-  return go.hist.length > 0;
-}
-function doUndo() {
-  if (game === 'chess') {
-    chessUndo(chess);
-    chess.sel = -1;
-    if (chess.log.length) chess.log.pop();
-  } else {
-    goUndo(go);
-    prevGo = -1;
-  }
-  after();
-}
+function canUndo() { return snaps.length > 0; }
 function updateUI() {
-  $('tabChess').classList.toggle('on', game === 'chess');
-  $('tabGo').classList.toggle('on', game === 'go');
-  document.querySelectorAll('#gameBtns .opt').forEach(b => b.classList.toggle('on', b.dataset.v === game));
-  $('komiBox').classList.toggle('hidden', game !== 'go');
-  if (game === 'chess') {
-    const tname = chess.t === 'w' ? '白' : '黒';
-    $('turnInd').innerHTML = chess.over ? '終局' : `${tname}${chessInCheck(chess) ? '（チェック！）' : ''}`;
-    $('modeBadge').textContent = 'チェス・ローカル対戦';
-    $('countLabel').textContent = '取った駒:';
-    const miss = chessCaptures(chess);
-    const wCap = ['q','r','b','n','p'].map(k => GLYPH[k].repeat(miss[k])).join(' ');
-    const bCap = ['Q','R','B','N','P'].map(k => GLYPH[k.toLowerCase()].repeat(miss[k])).join(' ');
-    $('dmg').innerHTML = `<span class="text-[11px] sm:text-xs whitespace-nowrap">白が取った: ${wCap || '—'}</span>`
-      + `<span class="text-[11px] sm:text-xs whitespace-nowrap">黒が取った: ${bCap || '—'}</span>`;
-    $('moveLog').textContent = chess.log.length
-      ? chess.log.map((m, i) => (i % 2 === 0 ? `${i / 2 + 1}. ` : '') + m + (i % 2 === 0 ? ' ' : '')).join('')
-      : 'まだ手がありません';
-    $('btnPass').textContent = flipped ? '盤面を戻す' : '盤面反転';
-    $('hint').textContent = 'チェス: 自分の駒をタップ→行き先をタップ（緑=移動・赤=取り）';
-  } else {
-    const tname = go.t === 1 ? '黒' : '白';
-    $('turnInd').innerHTML = go.over ? '終局' : `${dotHtml(go.t)}${tname}`;
-    $('modeBadge').textContent = '囲碁9路・ローカル対戦';
-    $('countLabel').textContent = '現在の石数:';
-    const n1 = go.b.filter(v => v === 1).length;
-    const n2 = go.b.filter(v => v === 2).length;
-    $('dmg').innerHTML = `<span class="text-[11px] sm:text-xs whitespace-nowrap">${dotHtml(1)}黒 <strong>${n1}</strong></span>`
-      + `<span class="text-[11px] sm:text-xs whitespace-nowrap">${dotHtml(2)}白 <strong>${n2}</strong></span>`;
-    $('moveLog').textContent = go.log.length ? go.log.join(' ') : 'まだ手がありません';
-    $('btnPass').textContent = 'パス';
-    $('hint').textContent = '囲碁: 交点をタップ（スマホは同じ点を2タップで確定）・呼吸点が無くなると取石';
-    const dead = go.phase === 'dead' && !go.over;
-    $('bnDead').classList.toggle('hidden', !dead);
-    $('bnDead').classList.toggle('flex', !!dead);
-    if (dead) {
-      const groups = new Set();
-      go.dead.forEach(i => { if (go.b[i]) groups.add(goGroup(go.b, go.n, i)[0]); });
-      $('deadCount').textContent = `自動判定: ${groups.size}連 / ${go.dead.length}石`;
-    }
-  }
+  const tname = turnStoneName(chess.t);
+  const check = !over && inCheck();
+  const stonesOnly = onlyStones();
+  $('turnInd').innerHTML = over ? '終局' : `${tname}${check ? '（王手！）' : (stonesOnly ? '（石のみ）' : '')}`;
+  const n1 = stoneCount(1), n2 = stoneCount(2);
+  const miss = chessCaptures(chess);
+  const takBlack = ['q','r','b','n','p'].map(k => GLYPH[k].repeat(miss[k])).join('');
+  const takWhite = ['Q','R','B','N','P'].map(k => GLYPH[k.toLowerCase()].repeat(miss[k])).join('');
+  $('dmg').innerHTML =
+    `<span class="text-[11px] sm:text-xs whitespace-nowrap">${dotHtml(1)}黒 石<strong>${n1}</strong>${takBlack ? ` 取 ${takBlack}` : ''}</span>`
+    + `<span class="text-[11px] sm:text-xs whitespace-nowrap">${dotHtml(2)}白 石<strong>${n2}</strong>${takWhite ? ` 取 ${takWhite}` : ''}</span>`;
+  $('moveLog').textContent = log.length ? log.join(' ') : 'まだ手がありません';
+  if (over) $('hint').textContent = '対局終了。「もう一度遊ぶ」で新しい対局を始めます。';
+  else if (check) $('hint').textContent = '王手！駒で受けてください（王手中は石を置けません）';
+  else if (stonesOnly) $('hint').textContent = '動ける駒がありません。交点に石を置けます。';
+  else $('hint').textContent = '駒: マス中央をタップ→移動先 / 石: 交点をタップ（駒未選択時）';
   $('btnUndo').disabled = !canUndo();
-  const over = game === 'chess' ? chess.over : go.over;
   $('bnResult').classList.toggle('hidden', !over);
   $('bnResult').classList.toggle('flex', !!over);
   resetResignButton();
@@ -1123,10 +1079,9 @@ function updateUI() {
 }
 function after() { updateUI(); save(); }
 function showResult() {
-  const r = game === 'chess' ? chess.result : go.result;
-  if (!r) return;
-  $('resTitle').textContent = r.title;
-  $('resDet').innerHTML = r.details || '';
+  if (!result) return;
+  $('resTitle').textContent = result.title;
+  $('resDet').innerHTML = result.details || '';
   $('resModal').classList.remove('hidden');
 }
 
@@ -1159,15 +1114,12 @@ $('btnShowResult').onclick = showResult;
 $('btnAgain').onclick = () => { closeModal($('resModal')); reset(); };
 $('btnUndo').onclick = () => { snd.click(); if (canUndo()) $('undoModal').classList.remove('hidden'); };
 $('btnUndoNo').onclick = () => closeModal($('undoModal'));
-$('btnUndoOk').onclick = () => { closeModal($('undoModal')); snd.click(); doUndo(); };
-$('btnPass').onclick = () => {
+$('btnUndoOk').onclick = () => {
+  closeModal($('undoModal'));
   snd.click();
-  if (game === 'chess') { flipped = !flipped; updateUI(); save(); return; }
-  if (go.over || go.phase !== 'playing') return;
-  goPass(go);
-  if (go.phase === 'dead') { updateUI(); save(); if (go.dead.length) snd.cap(); }
-  else after();
+  if (undo()) { closeModal($('resModal')); after(); }
 };
+$('btnFlip').onclick = () => { snd.click(); flipped = !flipped; updateUI(); save(); };
 function resetResignButton() {
   resignArmed = false;
   if (resignTimer) { clearTimeout(resignTimer); resignTimer = null; }
@@ -1178,9 +1130,7 @@ function resetResignButton() {
   b.classList.add('border-red-500/50', 'text-red-600');
 }
 $('btnResign').onclick = () => {
-  const over = game === 'chess' ? chess.over : go.over;
   if (over) return;
-  if (game === 'go' && go.phase !== 'playing') return;
   snd.click();
   if (!resignArmed) {
     resignArmed = true;
@@ -1192,47 +1142,10 @@ $('btnResign').onclick = () => {
     return;
   }
   resetResignButton();
-  if (game === 'chess') {
-    const loser = chess.t;
-    chess.over = true;
-    chess.result = {
-      title: loser === 'w' ? '黒の勝ち' : '白の勝ち',
-      details: '<div class="flex justify-between"><span>理由</span><strong>投了</strong></div>'
-    };
-  } else {
-    const loser = go.t;
-    go.over = true;
-    go.result = {
-      title: loser === 1 ? '白の勝ち' : '黒の勝ち',
-      details: '<div class="flex justify-between"><span>理由</span><strong>投了</strong></div>'
-    };
-  }
-  snd.win(); showResult(); after();
+  const loser = chess.t;
+  finishGame({ done: true, winner: chessOpp(loser), reason: '投了' });
+  updateUI(); save();
 };
-$('btnDeadCancel').onclick = () => {
-  if (go.phase !== 'dead' || go.over) return;
-  snd.click();
-  go.passes = 0; go.phase = 'playing'; go.dead = [];
-  after();
-};
-$('btnDeadOk').onclick = () => {
-  if (go.phase !== 'dead' || go.over) return;
-  snd.click();
-  const sc = goScore(go, go.dead);
-  let title;
-  if (sc.total[1] === sc.total[2]) title = '引き分け';
-  else title = sc.total[1] > sc.total[2] ? '黒の勝ち' : '白の勝ち';
-  go.over = true;
-  go.result = {
-    title,
-    details: `<div class="flex justify-between"><span>黒</span><strong>地 ${sc.t[1]} ＋ 石 ${sc.s[1]} ＝ ${sc.total[1]}点</strong></div>`
-      + `<div class="flex justify-between"><span>白</span><strong>地 ${sc.t[2]} ＋ 石 ${sc.s[2]} ＝ ${sc.total[2]}点</strong></div>`
-      + `<div class="flex justify-between text-xs opacity-70"><span>方式</span><span>中国ルール（コミなし）</span></div>`
-  };
-  snd.win(); showResult(); after();
-};
-$('btnDeadRecheck').onclick = () => { if (go.phase !== 'dead' || go.over) return; snd.click(); go.dead = goDetectDead(go); updateUI(); save(); };
-$('btnDeadClear').onclick = () => { if (go.phase !== 'dead' || go.over) return; snd.click(); go.dead = []; updateUI(); save(); };
 document.querySelectorAll('#promoBtns button').forEach(b => {
   b.onclick = () => {
     const pr = b.dataset.promo;
@@ -1244,15 +1157,7 @@ document.querySelectorAll('#promoBtns button').forEach(b => {
 });
 
 // ===== 設定 =====
-function syncSettings() {
-  document.querySelectorAll('#gameBtns .opt').forEach(b => b.classList.toggle('on', b.dataset.v === game));
-  $('btnSound').textContent = snd.on ? 'ON' : 'OFF';
-}
-document.querySelectorAll('#gameBtns .opt').forEach(b => {
-  b.onclick = () => { snd.click(); game = b.dataset.v; syncSettings(); updateUI(); save(); };
-});
-$('tabChess').onclick = () => { snd.click(); game = 'chess'; syncSettings(); updateUI(); save(); };
-$('tabGo').onclick = () => { snd.click(); game = 'go'; syncSettings(); updateUI(); save(); };
+function syncSettings() { $('btnSound').textContent = snd.on ? 'ON' : 'OFF'; }
 $('btnSound').onclick = () => { snd.on = !snd.on; syncSettings(); snd.click(); save(); };
 $('btnOpenSettings').onclick = () => { snd.click(); syncSettings(); $('setModal').classList.remove('hidden'); };
 $('btnOpenRules').onclick = () => { snd.click(); $('rulesModal').classList.remove('hidden'); };
@@ -1283,24 +1188,27 @@ function buildThemes() {
   });
 }
 function reset() {
-  if (game === 'chess') chess = chessNew();
-  else go = goNew();
-  prevGo = -1; flipped = false;
+  chess = chessNew();
+  stones = new Array(PT_N * PT_N).fill(0);
+  stoneSeen = [goHash(stones)];
+  flipped = false; sel = -1; chessLast = null; stoneLast = -1;
+  snaps = []; over = false; result = null; log = []; pendingPromo = null;
   closeModal($('resModal'));
   after();
   return true;
 }
 
-// ===== 読み取り専用デバッグフック（E2E検証用・UIには影響しない） =====
+// ===== 読み取り専用デバッグフック（E2E検証用） =====
 window.__checkmeigo = {
-  game: () => game,
   fen: () => chessToFen(chess),
-  chessStatus: () => chessStatus(chess),
-  chessLog: () => chess.log.slice(),
-  goBoard: () => go.b.slice(),
-  goTurn: () => go.t,
-  goPhase: () => go.phase,
-  goDead: () => go.dead.slice(),
+  stones: () => stones.slice(),
+  turn: () => chess.t,
+  log: () => log.slice(),
+  over: () => over,
+  inCheck: () => inCheck(),
+  legalChess: () => chessLegal(chess).length,
+  status: () => chessStatus(chess),
+  canUndo: () => canUndo(),
   themeId: () => theme.id,
 };
 
@@ -1308,7 +1216,7 @@ window.__checkmeigo = {
 window.addEventListener('load', () => {
   buildThemes();
   const restored = load();
-  if (!restored) { chess = chessNew(); go = goNew(); }
+  if (!restored) { chess = chessNew(); stones = new Array(PT_N * PT_N).fill(0); stoneSeen = [goHash(stones)]; }
   applyTheme(theme, false);
   syncSettings();
   if (!restored) $('setModal').classList.remove('hidden');

@@ -2,7 +2,7 @@
   "name": "checkmeigo",
   "version": "0.1.0",
   "private": true,
-  "description": "チェスと囲碁を1つのUIで遊ぶ静的Webアプリ（HEXAGOのデザインシステム流用）",
+  "description": "チェスと囲碁を1枚の盤に重ねた混合ゲーム（HEXAGOのデザインシステム流用）",
   "scripts": {
     "serve": "python3 -m http.server 8123 --bind 127.0.0.1",
     "test": "node dev/selftest.js",

@@ -50,46 +50,39 @@ const H = +(process.env.VIEW_H || 844);
   await wait(2200);
   await ev('document.getElementById("btnCloseSettings").click()');
 
-  // 囲碁: 数手だけ打って見た目を確認
-  await ev('document.getElementById("tabGo").click()');
-  await wait(150);
-  const goClick = async (r, c) => {
-    await ev(`(function(){
-      const cv=document.getElementById('cv'), R=cv.getBoundingClientRect();
-      const pad=R.width*0.085, cell=(R.width-pad*2)/8;
-      cv.dispatchEvent(new MouseEvent('click',{clientX:R.left+pad+${c}*cell,clientY:R.top+pad+${r}*cell,bubbles:true}));
-    })()`);
-    await wait(120);
-  };
-  await goClick(4, 4); await goClick(3, 4); await goClick(4, 3); await goClick(2, 4); await goClick(4, 5);
-  await shot('go-mobile.png');
+  const geom = JSON.parse(await ev('JSON.stringify(document.getElementById("cv").getBoundingClientRect())'));
+  const pad = geom.width * 0.06, cell = (geom.width - pad * 2) / 8;
+  const ptXY = (vr, vc) => ({ x: geom.left + pad + vc * cell, y: geom.top + pad + vr * cell });
+  const sqXY = (vr, vc) => ({ x: geom.left + pad + (vc + 0.5) * cell, y: geom.top + pad + (vr + 0.5) * cell });
+  async function clickAt(p) {
+    await ev(`(function(){const cv=document.getElementById('cv');
+      cv.dispatchEvent(new MouseEvent('click',{clientX:${p.x},clientY:${p.y},bubbles:true}));})()`);
+    await wait(130);
+  }
+
+  // 駒を数手 + 石を数個（既定テーマ）
+  for (const [r, c] of [[6,4],[4,4],[1,4],[3,4],[7,5],[4,2],[0,6],[2,5],[7,3],[3,7]]) await clickAt(sqXY(r, c));
+  await clickAt(ptXY(5, 2));
+  await clickAt(ptXY(3, 5));
+  await clickAt(ptXY(5, 5));
+  await shot('hybrid-board.png');
 
   // ダークテーマ
   await ev(`[...document.querySelectorAll('#themeList button')].find(b=>b.textContent.includes('ダーク')).click()`);
-  await wait(300);
-  await shot('dark-go-mobile.png');
+  await wait(350);
+  await shot('hybrid-dark.png');
 
-  // チェス（同じダークテーマのまま）
-  await ev('document.getElementById("tabChess").click()');
-  await wait(200);
-  const sqClick = async (r, c) => {
-    await ev(`(function(){
-      const cv=document.getElementById('cv'), R=cv.getBoundingClientRect();
-      const pad=R.width*0.06, cell=(R.width-pad*2)/8;
-      cv.dispatchEvent(new MouseEvent('click',{clientX:R.left+pad+${c+0.5}*cell,clientY:R.top+pad+${r+0.5}*cell,bubbles:true}));
-    })()`);
-    await wait(120);
-  };
-  await sqClick(6, 4); await sqClick(4, 4); // e4
-  await sqClick(1, 3); await sqClick(3, 3); // d5
-  await shot('dark-chess-mobile.png');
-
-  // 和風テーマの囲碁
-  await ev('document.getElementById("tabGo").click()');
-  await wait(150);
+  // 和風テーマ
   await ev(`[...document.querySelectorAll('#themeList button')].find(b=>b.textContent.includes('和風')).click()`);
-  await wait(300);
-  await shot('go-wa-mobile.png');
+  await wait(350);
+  await shot('hybrid-wa.png');
+
+  // 結果モーダル（投了）
+  await ev('document.getElementById("btnResign").click()');
+  await wait(150);
+  await ev('document.getElementById("btnResign").click()');
+  await wait(400);
+  await shot('hybrid-result.png');
 
   ws.close();
   console.log('done');
